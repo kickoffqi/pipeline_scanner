@@ -1,0 +1,275 @@
+name: CI - Local K8s smoke + Security scans
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+
+    env:
+      APP_NAME: demo-app
+      NAMESPACE: default
+      PORT: "8080"
+      IMAGE_LOCAL: demo-app:local
+      KIND_CLUSTER: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Summary (header)
+        run: |
+          {
+              echo "# CI Report"
+              echo ""
+              echo "**Repo:** $GITHUB_REPOSITORY"
+              echo "**Ref:** $GITHUB_REF"
+              echo "**SHA:** \`$GITHUB_SHA\`"
+              echo "**Actor:** $GITHUB_ACTOR"
+              echo ""
+              echo "## Build & Deploy Targets"
+              echo "- **APP:** \`${APP_NAME}\`"
+              echo "- **Namespace:** \`${NAMESPACE}\`"
+              echo "- **Local Image:** \`${IMAGE_LOCAL}\`"
+              echo "- **Overlay:** \`k8s/overlays/local\`"
+              echo "- **Kind Cluster:** \`${KIND_CLUSTER}\`"
+              echo ""
+              echo "## Stage Results"
+              echo "- ⏳ Dependency scan (pip-audit)"
+              echo "- ⏳ Trivy repo scan (secrets/misconfig)"
+              echo "- ⏳ Trivy image scan (CVE)"
+              echo "- ⏳ kind deploy + smoke test"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # -------- Security: Dependency scan (pip-audit) --------
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: pip-audit (Python deps)
+        run: |
+          set -e
+          python -m pip install --upgrade pip
+          pip install pip-audit
+          # 如果你的 requirements 在 app/requirements.txt
+          pip-audit -r app/requirements.txt -f json -o pip-audit.json || true
+          echo "pip-audit finished (non-blocking)."
+
+      # -------- Build image (local) --------
+      - name: Build local image
+        run: |
+          set -e
+          docker build -t "${IMAGE_LOCAL}" -f app/Dockerfile app
+          docker image ls | head
+
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@v0.2.1
+        with:
+          version: v0.56.1
+
+      - name: Prepare report folder
+        run: mkdir -p ci-reports
+
+      - name: Trivy repo scan (secrets + misconfig) - CLI
+        id: trivy_fs
+        continue-on-error: true
+        env:
+          TRIVY_SKIP_CHECK_UPDATE: "true"
+        run: |
+          set -euo pipefail
+
+                # 只扫你 repo 里真正相关的 misconfig 类型：K8s + Dockerfile (+ Terraform 如果你有)
+                # 关键点：避免触发 Trivy 内置的 cloud policies（你这里就是 cloud policy rego 报错）
+                set +e
+                trivy fs . \
+                  --scanners secret,misconfig \
+                  --misconfig-scanners kubernetes,dockerfile,terraform \
+                  --skip-check-update \
+                  --severity HIGH,CRITICAL \
+                  --ignore-unfixed \
+                  --exit-code 1 \
+                  --format table \
+                  | tee ci-reports/trivy-fs.txt
+                TRIVY_EXIT="${PIPESTATUS[0]}"
+                set -e
+
+                echo ""
+                echo "=== Trivy report (ci-reports/trivy-fs.txt) ==="
+                sed -n '1,200p' ci-reports/trivy-fs.txt || true
+                echo "=== End report preview ==="
+                echo "exit_code=${TRIVY_EXIT}" >> "${GITHUB_OUTPUT}"
+                exit 0
+
+      - name: Summary (Trivy repo scan)
+        if: always()
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Trivy repo scan (secret/misconfig)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Gate: **block on HIGH/CRITICAL**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- If failed: fix Dockerfile USER + K8s securityContext/readOnlyRootFilesystem" >> "$GITHUB_STEP_SUMMARY"
+
+      # -------- Security: Trivy image scan (vulns) --------
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: "${{ env.IMAGE_LOCAL }}"
+          format: "table"
+          exit-code: "1" # 先不阻断；后面你想“挡 CRITICAL”再改成 1
+          severity: "CRITICAL"
+          ignore-unfixed: "true"
+
+      - name: Summary (Trivy image scan)
+        if: always()
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ✅ Trivy image scan (CVE)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Policy: **block on CRITICAL**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: \`${IMAGE_LOCAL}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # -------- K8s: kind cluster --------
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install kind
+        run: |
+          set -e
+          KIND_VERSION="v0.27.0"
+          curl -Lo kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          chmod +x kind
+          sudo mv kind /usr/local/bin/kind
+          kind version
+
+      - name: Create kind cluster
+        run: |
+          set -e
+          kind create cluster --name "${KIND_CLUSTER}"
+          kubectl cluster-info
+          kubectl get nodes -o wide
+
+      - name: Load image into kind
+        run: |
+          set -e
+          kind load docker-image "${IMAGE_LOCAL}" --name "${KIND_CLUSTER}"
+
+      - name: Deploy (kustomize local overlay)
+        id: deploy
+        run: |
+          set -euo pipefail
+          kubectl apply -k k8s/overlays/local
+
+          echo "=== rollout status ==="
+          kubectl rollout status deploy/${APP_NAME} -n ${NAMESPACE} --timeout=180s
+
+          echo "=== pods ==="
+          kubectl get pods -n ${NAMESPACE} -o wide
+
+      - name: Debug dump on failure
+        if: failure()
+        run: |
+          set +e
+          echo "## ❌ Deploy failed - debug dump" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Pods" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          kubectl get pods -n ${NAMESPACE} -o wide >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Events (namespace)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          kubectl get events -n ${NAMESPACE} --sort-by=.lastTimestamp | tail -n 80 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Describe deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          kubectl describe deploy/${APP_NAME} -n ${NAMESPACE} >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Describe pods (first 3)" >> "$GITHUB_STEP_SUMMARY"
+          for p in $(kubectl get pods -n ${NAMESPACE} -l app=${APP_NAME} -o name | head -n 3); do
+          echo "#### $p" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          kubectl describe $p -n ${NAMESPACE} >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Logs (tail 120):" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          kubectl logs -n ${NAMESPACE} $p --tail=120 >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Smoke test (scripts/smoke-test.sh)
+        run: |
+          set -e
+          APP_NAME=${APP_NAME} NAMESPACE=${NAMESPACE} PORT=${PORT} ./scripts/smoke-test.sh
+
+      - name: Summary (K8s smoke)
+        if: success()
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ✅ kind deploy + smoke test" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Deployment: \`${APP_NAME}\` in \`${NAMESPACE}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Smoke: passed" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Debug dump on failure
+        if: failure()
+        run: |
+          APP_NAME=${APP_NAME} NAMESPACE=${NAMESPACE} ./scripts/k8s-debug-dump.sh || true
+
+      - name: Upload reports (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports
+          path: |
+            ci-reports/
+            pip-audit.json
+
+      - name: Cleanup
+        if: always()
+        run: |
+          kind delete cluster --name "${KIND_CLUSTER}" || true
+
+      - name: Summary (pip-audit)
+        if: always()
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ✅ Dependency scan (pip-audit)" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f pip-audit.json ]; then
+          COUNT="$(python -c 'import json; d=json.load(open("pip-audit.json","r",encoding="utf-8")); print(len(d.get("vulnerabilities", [])))' 2>/dev/null || echo unknown)"
+          echo "- Findings: **${COUNT}** (see artifact: ci-reports/pip-audit.json)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- No report file generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Summary (Failure guide)
+        if: failure()
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ❌ Failure guide" >> "$GITHUB_STEP_SUMMARY"
+          echo "1) Check **Trivy** step output (secrets/misconfig or CRITICAL CVE)." >> "$GITHUB_STEP_SUMMARY"
+          echo "2) Check **Deploy** and **Smoke test** steps." >> "$GITHUB_STEP_SUMMARY"
+          echo "3) See **Debug dump on failure** (pods/events/describe/logs)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Gate (Trivy repo scan)
+        if: always()
+        run: |
+          set -euo pipefail
+          CODE="${{ steps.trivy_fs.outputs.exit_code }}"
+          if [ -z "${CODE}" ]; then
+            echo "Trivy exit code missing (unexpected)."
+            exit 2
+          fi
+          if [ "${CODE}" != "0" ]; then
+            echo "Trivy repo scan gate failed (exit code: ${CODE})."
+            exit "${CODE}"
+          fi
+          echo "Trivy repo scan gate passed."
