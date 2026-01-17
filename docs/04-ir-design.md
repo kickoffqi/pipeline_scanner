@@ -96,7 +96,53 @@ Rules/Controls 只依赖 IR，不直接依赖 YAML。
 - has_curl_pipe_shell: bool
 
 ## 5. Permissions Resolution Rules
-- effective = merge_permissions(workflow_perm, job_perm)
+
+This section defines how workflow-level and job-level permissions
+are merged into effective permissions used by controls.
+
+### 5.1 Input
+- workflow.permissions: PermissionsIR
+- job.permissions: PermissionsIR
+
+### 5.2 Output
+- job.derived.effective_permissions: dict[str,str]
+- job.derived.effective_permissions_mode: implicit | explicit
+
+### 5.3 Resolution Algorithm
+
+effective = merge_permissions(workflow_perm, job_perm)
+
+Rules:
+1. If workflow.permissions.mode == implicit:
+   base = implicit
+2. Else:
+   base = workflow.permissions.entries
+
+3. If job.permissions.mode == implicit:
+   effective = base
+4. Else if "__all__" in job.permissions.entries:
+   effective = job.permissions.entries
+5. Else:
+   effective = base overridden by job.permissions.entries
+
+## 5.4 Permissions Derivation and Usage
+
+Workflow-level and job-level permissions are merged during the IR derivation
+phase to produce `job.derived.effective_permissions`.
+
+Security controls MUST evaluate permissions using this derived field and
+MUST NOT re-parse raw YAML permissions.
+
+For example:
+- **L1-02 (Explicit and Least-Privilege Permissions)** evaluates
+  `job.derived.effective_permissions` to determine pass/fail status.
+
+See:
+- [L1-02 — Explicit and Least-Privilege Permissions](06-controls/L1-02-permissions.md)
+
+### 5.45 Notes
+- This logic intentionally does not resolve GitHub org/repo defaults.
+- Controls MUST use effective_permissions, not raw permissions.
 
 
 ## 6. Mapping Rules (YAML -> IR)
@@ -117,14 +163,23 @@ Rules/Controls 只依赖 IR，不直接依赖 YAML。
   - 搜索 secrets 引用模式：${{ secrets.XXX }} / secrets["XXX"] / needs.*.outputs?（v1 先只做 secrets.*）
   - 搜索危险模式：set -x, curl|bash, wget|sh, docker.sock, --privileged
 
-## 7. Why these fields (v1)
+## 8. Control Dependencies on IR (v1)
+
+| Control ID | IR Fields Used |
+|------------|----------------|
+| L1-01      | step.uses.ref_type, step.location |
+| L1-02      | job.derived.effective_permissions |
+| L1-03      | workflow.triggers, job.derived.uses_secrets |
+| L1-04      | workflow.derived.has_fork_risk_surface, job.derived.uses_secrets |
+
+## 9. Why these fields (v1)
 - L1-01 Action pin 需要 UsesRefIR.ref/ref_type
 - L1-02 permissions 需要 PermissionsIR.mode/entries + job override
 - L1-03 pull_request_target 需要 TriggerIR.events + job uses_secrets
 - L1-04 fork secrets 需要 has_fork_risk_surface + uses_secrets
 - L2-09 Azure OIDC 需要检测 azure/login + id-token 权限 + secrets 使用情况（粗略）
 
-## 8. Example
+## 10. Example
 Example01:
     name: CI
     on:
@@ -196,3 +251,5 @@ Example05: workflow 最小化，但 job write-all（危险）
 IR:
     •	base = contents: read
 	•	effective = __all__: write
+
+
