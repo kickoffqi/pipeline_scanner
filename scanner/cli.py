@@ -49,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     s = sub.add_parser("scan", help="Scan a workflow file or a directory containing workflows.")
-    s.add_argument("path", help="Path to workflow file or directory (e.g. .github/workflows).")
+    s.add_argument("path", help="Path to workflow file or directory (e.g. /test/workflows).")
     s.add_argument("--policy", help="Path to policy JSON file (optional).", default=None)
     s.set_defaults(func=cmd_scan)
 
