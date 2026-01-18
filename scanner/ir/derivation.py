@@ -9,6 +9,8 @@ _SET_X_RE = re.compile(r"(^|\n)\s*set\s+-x\b")
 _CURL_PIPE_RE = re.compile(r"(curl\s+[^\n\r]*\|\s*(bash|sh))|(wget\s+[^\n\r]*\|\s*(bash|sh))", re.IGNORECASE)
 
 AZURE_ENV_KEYS = {"AZURE_CREDENTIALS", "AZURE_CLIENT_SECRET", "AZURE_SECRET"}
+AZURE_WITH_KEYS_SECRET = {"creds", "client-secret", "client_secret", "password", "secret"}
+AZ_CLI_RE = re.compile(r"\baz\s+(login|account|deployment|keyvault|aks|acr)\b", re.IGNORECASE)
 
 
 def merge_permissions(workflow_perm: PermissionsIR, job_perm: PermissionsIR) -> Tuple[Dict[str, str], str]:
@@ -56,10 +58,14 @@ def derive_workflow(wf: WorkflowIR) -> WorkflowIR:
         dangerous = set()
         uses_azure_login = False
         azure_env_injected = False
+        azure_with_secret = False
+        uses_azure_cli = False
 
         for step in job.steps:
             if step.kind == "run" and step.run is not None:
                 cmd = step.run.command or ""
+                if AZ_CLI_RE.search(cmd):
+                    uses_azure_cli = True
                 if _SECRETS_RE.search(cmd):
                     uses_secrets = True
                     step.derived.references_secrets = True
@@ -74,6 +80,8 @@ def derive_workflow(wf: WorkflowIR) -> WorkflowIR:
                 # azure login detection
                 if step.uses.owner_repo and step.uses.owner_repo.lower() == "azure/login":
                     uses_azure_login = True
+                    if step.with_keys and any(k.lower() in AZURE_WITH_KEYS_SECRET for k in step.with_keys):
+                        azure_with_secret = True
 
             # env keys hints
             if step.env_keys & AZURE_ENV_KEYS:
@@ -83,6 +91,14 @@ def derive_workflow(wf: WorkflowIR) -> WorkflowIR:
         # v1: secrets in run commands or presence of common Azure credential env keys
         job.derived.uses_secrets = uses_secrets or azure_env_injected
         job.derived.dangerous_patterns = dangerous
+
+        # Azure auth detection hints (v1)
+        if uses_azure_login:
+            job.derived.dangerous_patterns.add("azure_login")
+        if uses_azure_cli:
+            job.derived.dangerous_patterns.add("azure_cli")
+        if azure_with_secret or azure_env_injected:
+            job.derived.dangerous_patterns.add("azure_secret_auth")
 
         # OIDC heuristic (v1):
         # if azure/login is used and effective permissions include id-token: write, assume OIDC intent

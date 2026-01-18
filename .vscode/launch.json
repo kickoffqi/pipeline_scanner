@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Scanner CLI Scan",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scanner.cli", // 对应 -m scanner.cli
+            "args": [
+                "scan",
+                "./test/workflows/ci-k8s-local-security.yml",
+                "--policy",
+                "policy.example.yml"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

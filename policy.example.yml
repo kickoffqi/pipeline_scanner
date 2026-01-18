@@ -1,0 +1,25 @@
+# Levels: use CLI --level to select which controls run (L1 runs L1 controls, L2 runs L1+L2).
+
+# Example policy configuration (YAML)
+# You can start by copying this file to policy.yml and adjusting values.
+
+# L1-01
+# L1 default: true (WARN). L2/L3 default: false (FAIL). Override as needed.
+allow_semver_tags: false
+
+# L1-02
+require_explicit_permissions: true
+forbid_write_all: true
+
+# L2-09
+require_azure_oidc: true
+forbid_azure_credentials_secret: true
+require_id_token_write: true
+
+# Optional hardening:
+# L2/L3 default: true. L1 default: false. Override as needed.
+# forbid_oidc_on_untrusted_triggers: true
+# trusted_triggers_for_oidc:
+#   - push
+#   - workflow_dispatch
+#   - schedule

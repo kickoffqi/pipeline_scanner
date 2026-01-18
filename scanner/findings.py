@@ -16,10 +16,12 @@ class Finding:
     file_path: str
     start_line: Optional[int] = None
     end_line: Optional[int] = None
-    metadata: Dict[str, Any] = None
+    rule_id: Optional[str] = None
+    explain: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out = {
             "control_id": self.control_id,
             "status": self.status,
             "severity": self.severity,
@@ -27,5 +29,8 @@ class Finding:
             "file_path": self.file_path,
             "start_line": self.start_line,
             "end_line": self.end_line,
+            "rule_id": self.rule_id,
+            "explain": self.explain or {},
             "metadata": self.metadata or {},
         }
+        return out

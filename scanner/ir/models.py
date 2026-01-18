@@ -56,6 +56,7 @@ class StepIR:
     uses: Optional[UsesRefIR] = None
     run: Optional[RunIR] = None
     env_keys: Set[str] = field(default_factory=set)
+    with_keys: Set[str] = field(default_factory=set)
     derived: StepDerivedIR = field(default_factory=StepDerivedIR)
     location: Optional[LocationIR] = None
 

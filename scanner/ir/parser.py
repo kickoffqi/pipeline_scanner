@@ -131,6 +131,12 @@ def parse_workflow_yaml(file_path: str, text: str) -> WorkflowIR:
                         else:
                             step.kind = "other"
 
+                        with_node = st.get("with")
+                        if isinstance(with_node, dict):
+                            for k in with_node.keys():
+                                if isinstance(k, str):
+                                    step.with_keys.add(k)
+
                         env_node = st.get("env")
                         if isinstance(env_node, dict):
                             for k in env_node.keys():

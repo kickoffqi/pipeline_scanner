@@ -1,0 +1,122 @@
+name: pipeline-scanner-scenarios
+
+on:
+  push:
+  pull_request:
+  pull_request_target:
+  workflow_dispatch:
+
+jobs:
+  implicit-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tag action (semver)
+        uses: actions/checkout@v4
+      - name: Branch action
+        uses: actions/setup-python@main
+      - name: Unknown ref action
+        uses: actions/cache@stable
+      - name: SHA pinned action
+        uses: actions/upload-artifact@0123456789abcdef0123456789abcdef01234567
+      - name: Local action (no ref)
+        uses: ./.github/actions/local-action
+      - name: Run step
+        run: echo "hello"
+
+  write-all-ci:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - run: echo "write-all permissions"
+
+  ci-write:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: echo "ci job with write scope"
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: echo "deploy job with contents write"
+
+  ci-readonly:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - run: echo "ci job with readonly permissions"
+
+  prt-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "secret is ${{ secrets.TOP_SECRET }}"
+
+  prt-run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "run under pull_request_target"
+
+  prt-checkout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+  prt-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            core.info("metadata-only job")
+
+  pr-env:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "env-gated job"
+
+  azure-secret-creds:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+  azure-missing-oidc:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+
+  azure-oidc-write-scopes:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+
+  azure-oidc-pass:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
