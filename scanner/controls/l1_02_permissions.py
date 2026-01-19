@@ -6,6 +6,7 @@ from .base import Control
 from ..findings import Finding
 from ..ir.models import WorkflowIR, JobIR
 from ..utils.explain import explain_pack
+from ..utils.locator import find_permissions_line
 
 
 def _job_category(job: JobIR) -> str:
@@ -29,6 +30,7 @@ class L102Permissions(Control):
         forbid_write_all = bool(policy.get("forbid_write_all", True))
 
         findings: List[Finding] = []
+        perm_line = find_permissions_line(getattr(wf, 'source_text', None))
 
         for job in wf.jobs:
             eff = job.derived.effective_permissions or {}
@@ -43,6 +45,8 @@ class L102Permissions(Control):
                     rule_id="L1-02.R0",
                     message="Permissions are implicit. Explicit minimal permissions must be declared.",
                     file_path=wf.file_path,
+                    start_line=perm_line,
+                    end_line=None,
                     explain=explain_pack(
                         why="Implicit GITHUB_TOKEN permissions depend on repo/org defaults and are difficult to audit.",
                         detect="No explicit `permissions:` block was found at workflow/job level (effective mode=implicit).",
@@ -62,6 +66,8 @@ class L102Permissions(Control):
                     rule_id="L1-02.R1",
                     message="write-all permissions are forbidden. Declare minimal scopes explicitly.",
                     file_path=wf.file_path,
+                    start_line=perm_line,
+                    end_line=None,
                     explain=explain_pack(
                         why="write-all greatly increases blast radius if a workflow is compromised.",
                         detect="Effective permissions include `write-all` (`__all__: write`).",
@@ -83,6 +89,8 @@ class L102Permissions(Control):
                     rule_id="L1-02.R2",
                     message=f"CI jobs must not require write permissions. Found write scopes: {', '.join(ws)}.",
                     file_path=wf.file_path,
+                    start_line=perm_line,
+                    end_line=None,
                     explain=explain_pack(
                         why="CI jobs typically only need read access. Write scopes allow attackers to modify repo state.",
                         detect=f"Job category=ci and effective permissions include write scopes: {', '.join(ws)}.",
@@ -103,6 +111,8 @@ class L102Permissions(Control):
                         rule_id="L1-02.R3a",
                         message="Deploy job uses write-all. Declare minimal scopes explicitly.",
                         file_path=wf.file_path,
+                    start_line=perm_line,
+                    end_line=None,
                         explain=explain_pack(
                             why="Deploy jobs are high-value targets. write-all enables repo modification and token abuse.",
                             detect="Deploy job has `__all__: write`.",
@@ -122,6 +132,8 @@ class L102Permissions(Control):
                         rule_id="L1-02.R3b",
                         message="Deploy jobs often do not need contents: write. Review if this is required.",
                         file_path=wf.file_path,
+                    start_line=perm_line,
+                    end_line=None,
                         explain=explain_pack(
                             why="Unnecessary write scopes increase blast radius without improving functionality.",
                             detect="Deploy job has `contents: write`.",
@@ -140,6 +152,8 @@ class L102Permissions(Control):
                 rule_id="L1-02.PASS",
                 message="Permissions are explicit and comply with least-privilege policy.",
                 file_path=wf.file_path,
+                    start_line=perm_line,
+                    end_line=None,
                 explain=explain_pack(
                     why="Least-privilege permissions reduce the impact of workflow compromise.",
                     detect="Effective permissions are explicit and no forbidden/broad write scopes were detected.",

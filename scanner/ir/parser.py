@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 import re
 import yaml
 
 from .models import (
-    WorkflowIR, TriggerIR, PermissionsIR, JobIR, StepIR, UsesRefIR, RunIR, LocationIR
+    WorkflowIR, TriggerIR, PermissionsIR, JobIR, StepIR, UsesRefIR, RunIR
 )
 from ..utils.text import classify_ref_type
 
@@ -23,7 +23,6 @@ def _parse_permissions(node: Any) -> PermissionsIR:
             return PermissionsIR(mode="explicit", entries={"__all__": "read"})
         if val == "write-all":
             return PermissionsIR(mode="explicit", entries={"__all__": "write"})
-        # unknown string -> keep as explicit marker
         return PermissionsIR(mode="explicit", entries={"__raw__": val})
 
     if isinstance(node, dict):
@@ -82,6 +81,7 @@ def _parse_uses(value: str) -> UsesRefIR:
 def parse_workflow_yaml(file_path: str, text: str) -> WorkflowIR:
     data = yaml.safe_load(text) or {}
     wf = WorkflowIR(file_path=file_path, name=(data.get("name") if isinstance(data, dict) else None))
+    wf.source_text = text
 
     if not isinstance(data, dict):
         return wf
@@ -90,60 +90,66 @@ def parse_workflow_yaml(file_path: str, text: str) -> WorkflowIR:
     wf.permissions = _parse_permissions(data.get("permissions"))
 
     jobs_node = data.get("jobs", {})
-    if isinstance(jobs_node, dict):
-        for job_id, job_node in jobs_node.items():
-            if not isinstance(job_id, str) or not isinstance(job_node, dict):
-                continue
-            job = JobIR(job_id=job_id, name=job_node.get("name") if isinstance(job_node.get("name"), str) else None)
-            # runs-on can be string or list
-            runs_on = job_node.get("runs-on")
-            if isinstance(runs_on, str):
-                job.runs_on = [runs_on]
-            elif isinstance(runs_on, list):
-                job.runs_on = [str(x) for x in runs_on]
-            else:
-                job.runs_on = []
+    if not isinstance(jobs_node, dict):
+        return wf
 
-            job.permissions = _parse_permissions(job_node.get("permissions"))
+    for job_id, job_node in jobs_node.items():
+        if not isinstance(job_id, str) or not isinstance(job_node, dict):
+            continue
 
-            env = job_node.get("environment")
-            if isinstance(env, str):
-                job.environment = env
-            elif isinstance(env, dict) and isinstance(env.get("name"), str):
-                job.environment = env.get("name")
+        job = JobIR(job_id=job_id, name=job_node.get("name") if isinstance(job_node.get("name"), str) else None)
 
-            steps_node = job_node.get("steps", [])
-            if isinstance(steps_node, list):
-                for idx, st in enumerate(steps_node):
-                    step = StepIR(index=idx)
-                    if isinstance(st, dict):
-                        if isinstance(st.get("name"), str):
-                            step.name = st.get("name")
+        runs_on = job_node.get("runs-on")
+        if isinstance(runs_on, str):
+            job.runs_on = [runs_on]
+        elif isinstance(runs_on, list):
+            job.runs_on = [str(x) for x in runs_on]
+        else:
+            job.runs_on = []
 
-                        if isinstance(st.get("uses"), str):
-                            step.kind = "uses"
-                            step.uses = _parse_uses(st["uses"])
+        job.permissions = _parse_permissions(job_node.get("permissions"))
 
-                        elif isinstance(st.get("run"), str):
-                            step.kind = "run"
-                            step.run = RunIR(shell=st.get("shell") if isinstance(st.get("shell"), str) else None,
-                                             command=st["run"])
-                        else:
-                            step.kind = "other"
+        env = job_node.get("environment")
+        if isinstance(env, str):
+            job.environment = env
+        elif isinstance(env, dict) and isinstance(env.get("name"), str):
+            job.environment = env.get("name")
 
-                        with_node = st.get("with")
-                        if isinstance(with_node, dict):
-                            for k in with_node.keys():
-                                if isinstance(k, str):
-                                    step.with_keys.add(k)
+        steps_node = job_node.get("steps", [])
+        if isinstance(steps_node, list):
+            for idx, st in enumerate(steps_node):
+                step = StepIR(index=idx)
 
-                        env_node = st.get("env")
-                        if isinstance(env_node, dict):
-                            for k in env_node.keys():
-                                if isinstance(k, str):
-                                    step.env_keys.add(k)
-                    job.steps.append(step)
+                if isinstance(st, dict):
+                    if isinstance(st.get("name"), str):
+                        step.name = st.get("name")
 
-            wf.jobs.append(job)
+                    if isinstance(st.get("uses"), str):
+                        step.kind = "uses"
+                        step.uses = _parse_uses(st["uses"])
+                    elif isinstance(st.get("run"), str):
+                        step.kind = "run"
+                        step.run = RunIR(
+                            shell=st.get("shell") if isinstance(st.get("shell"), str) else None,
+                            command=st["run"],
+                        )
+                    else:
+                        step.kind = "other"
+
+                    with_node = st.get("with")
+                    if isinstance(with_node, dict):
+                        for k in with_node.keys():
+                            if isinstance(k, str):
+                                step.with_keys.add(k)
+
+                    env_node = st.get("env")
+                    if isinstance(env_node, dict):
+                        for k in env_node.keys():
+                            if isinstance(k, str):
+                                step.env_keys.add(k)
+
+                job.steps.append(step)
+
+        wf.jobs.append(job)
 
     return wf

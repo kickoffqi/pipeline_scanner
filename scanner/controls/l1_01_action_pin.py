@@ -6,6 +6,7 @@ from .base import Control
 from ..findings import Finding
 from ..ir.models import WorkflowIR
 from ..utils.explain import explain_pack
+from ..utils.locator import find_first_uses_line
 
 
 class L101ActionPin(Control):
@@ -24,6 +25,7 @@ class L101ActionPin(Control):
                 loc = step.location
                 file_path = wf.file_path
                 uses_str = step.uses.full
+                loc_line = find_first_uses_line(getattr(wf, 'source_text', None), uses_str)
 
                 if ref_type == "sha":
                     findings.append(Finding(
@@ -33,8 +35,8 @@ class L101ActionPin(Control):
                         rule_id="L1-01.R3",
                         message="Action is pinned to an immutable commit SHA.",
                         file_path=file_path,
-                        start_line=loc.start_line if loc else None,
-                        end_line=loc.end_line if loc else None,
+                        start_line=loc_line,
+                        end_line=None,
                         explain=explain_pack(
                             why="Pinned SHAs prevent upstream action changes from silently altering your pipeline.",
                             detect=f"`uses: {uses_str}` is pinned to a 40-hex commit SHA.",
@@ -52,8 +54,8 @@ class L101ActionPin(Control):
                         rule_id="L1-01.R1",
                         message="Action references a mutable branch. Pin to a commit SHA.",
                         file_path=file_path,
-                        start_line=loc.start_line if loc else None,
-                        end_line=loc.end_line if loc else None,
+                        start_line=loc_line,
+                        end_line=None,
                         explain=explain_pack(
                             why="Branches can move. If the upstream action is compromised, your workflow may run malicious code without changing YAML.",
                             detect=f"`uses: {uses_str}` references a branch-like ref.",
@@ -72,8 +74,8 @@ class L101ActionPin(Control):
                             rule_id="L1-01.R2",
                             message="Action uses a tag. Commit SHA pinning is recommended.",
                             file_path=file_path,
-                            start_line=loc.start_line if loc else None,
-                            end_line=loc.end_line if loc else None,
+                            start_line=loc_line,
+                            end_line=None,
                             explain=explain_pack(
                                 why="Tags can be retargeted. SHA pinning provides the strongest supply-chain protection.",
                                 detect=f"`uses: {uses_str}` references a tag.",
@@ -91,8 +93,8 @@ class L101ActionPin(Control):
                             rule_id="L1-01.R2",
                             message="Action references a mutable tag. Pin to a commit SHA.",
                             file_path=file_path,
-                            start_line=loc.start_line if loc else None,
-                            end_line=loc.end_line if loc else None,
+                            start_line=loc_line,
+                            end_line=None,
                             explain=explain_pack(
                                 why="Tags can be retargeted. If the upstream action is compromised, tag-based pinning can run attacker code.",
                                 detect=f"`uses: {uses_str}` references a tag while SHA-only policy is enabled.",
@@ -110,8 +112,8 @@ class L101ActionPin(Control):
                         rule_id="L1-01.R4",
                         message="Unable to determine reference immutability. Review manually.",
                         file_path=file_path,
-                        start_line=loc.start_line if loc else None,
-                        end_line=loc.end_line if loc else None,
+                        start_line=loc_line,
+                        end_line=None,
                         explain=explain_pack(
                             why="If the reference is not clearly immutable, the action may still change over time.",
                             detect=f"`uses: {uses_str}` reference type could not be determined.",

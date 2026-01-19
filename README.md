@@ -63,3 +63,15 @@ Each level applies different default policy values (stricter at higher levels). 
 Examples:
 - L1 allows semver tags for actions (WARN)
 - L2+ requires SHA pinning and forbids Azure auth on PR triggers by default
+
+## Flask API
+
+Run the web API:
+
+```bash
+export FLASK_APP=wsgi.py
+export FLASK_DEBUG=1
+flask run --host 0.0.0.0 --port 5000
+```
+
+See `docs/api.md` for endpoint details.

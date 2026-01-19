@@ -100,3 +100,4 @@ class WorkflowIR:
     permissions: PermissionsIR = field(default_factory=PermissionsIR)
     jobs: List[JobIR] = field(default_factory=list)
     derived: WorkflowDerivedIR = field(default_factory=WorkflowDerivedIR)
+    source_text: Optional[str] = None
