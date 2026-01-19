@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dotenv import load_dotenv
 
 import os
 from flask import Flask, jsonify
@@ -8,8 +9,11 @@ from .routes.scan import bp as scan_bp
 from .routes.policy import bp as policy_bp
 
 
+
 def create_app() -> Flask:
     app = Flask(__name__)
+    #load environment variables from .env file
+    load_dotenv()
 
     # Basic hardening
     max_bytes = int(os.environ.get("MAX_REQUEST_BYTES", str(1 * 1024 * 1024)))  # 1MB default
