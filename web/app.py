@@ -5,9 +5,9 @@ from flask import Flask, jsonify
 
 from .routes.health import bp as health_bp
 from .routes.scan import bp as scan_bp
+from .routes.ui import bp as ui_bp
 from .errors import register_error_handlers
 from .routes.policy import bp as policy_bp
-
 
 
 def create_app() -> Flask:
@@ -18,6 +18,7 @@ def create_app() -> Flask:
     app.config["MAX_CONTENT_LENGTH"] = max_bytes
 
     # Register blueprints
+    app.register_blueprint(ui_bp)
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(scan_bp, url_prefix="/api")
     app.register_blueprint(policy_bp, url_prefix="/api")

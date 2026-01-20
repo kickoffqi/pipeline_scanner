@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GH Actions Security Scanner</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}" />
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="title">
+        <h1>GitHub Actions Security Scanner</h1>
+        <p class="subtitle">Upload a workflow YAML, scan with L1/L2/L3, and review findings with line-level hints.</p>
+      </div>
+      <div class="links">
+        <a class="link" href="/api/scan" target="_blank" rel="noreferrer">API Help</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Scan a workflow</h2>
+
+      <form id="scanForm" class="form">
+        <div class="row">
+          <label class="label" for="level">Level</label>
+          <select id="level" name="level" class="select">
+            <option value="L1" selected>L1</option>
+            <option value="L2">L2</option>
+            <option value="L3">L3</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label class="label" for="onlyStatus">Only show</label>
+          <select id="onlyStatus" name="onlyStatus" class="select">
+            <option value="">All statuses</option>
+            <option value="fail,warn">FAIL + WARN</option>
+            <option value="fail">FAIL only</option>
+            <option value="warn">WARN only</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label class="label" for="file">Workflow YAML</label>
+          <input id="file" name="file" type="file" class="file" accept=".yml,.yaml,text/yaml,text/plain" required />
+          <p class="hint">Upload <code>.github/workflows/*.yml</code>. Do not upload real secrets.</p>
+        </div>
+
+        <div class="row actions">
+          <button type="submit" class="button" id="scanBtn">Scan</button>
+          <button type="button" class="button secondary" id="clearBtn">Clear</button>
+        </div>
+
+        <div id="statusBar" class="statusbar hidden"></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="resultsHeader">
+        <h2>Results</h2>
+        <div class="pillRow" id="summaryPills"></div>
+      </div>
+
+      <div id="results" class="results empty">
+        <p class="muted">No scan results yet. Upload a workflow and click <b>Scan</b>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span class="muted">Local dev UI. For production, run behind HTTPS and disable debug.</span>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
