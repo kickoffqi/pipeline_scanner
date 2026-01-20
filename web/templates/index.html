@@ -29,13 +29,22 @@
       </div>
 
       <form id="scanForm" class="form">
-        <div class="row grid2">
+        <div class="row grid3">
           <div>
             <label class="label" for="level">Level</label>
             <select id="level" name="level" class="select">
               <option value="L1" selected>L1</option>
               <option value="L2">L2</option>
               <option value="L3">L3</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="label" for="policyPreset">Policy preset</label>
+            <select id="policyPreset" name="policyPreset" class="select">
+              <option value="default" selected>Default (recommended)</option>
+              <option value="strict">Strict (more FAILs)</option>
+              <option value="relaxed">Relaxed (fewer WARNs)</option>
             </select>
           </div>
 

@@ -211,8 +211,8 @@ async function readFileAsText(file) {
   });
 }
 
-async function scanText(level, filePath, workflowText, onlyStatus) {
-  const payload = { level, file_path: filePath, workflow: workflowText };
+async function scanText(level, policyPreset, filePath, workflowText, onlyStatus) {
+  const payload = { level, policy_preset: policyPreset, file_path: filePath, workflow: workflowText };
   if (onlyStatus) payload.only_status = onlyStatus;
 
   const res = await fetch("/api/scan", {
@@ -279,6 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clearStatus();
 
     const level = $("level").value || "L1";
+    const policyPreset = $("policyPreset").value || "default";
     const onlyStatus = $("onlyStatus").value || "";
 
     scanBtn.disabled = true;
@@ -292,7 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!text.trim()) throw new Error("Uploaded file is empty.");
         currentWorkflowText = text;
         currentFilePath = file.name || "workflow.yml";
-        const resp = await scanText(level, currentFilePath, currentWorkflowText, onlyStatus);
+        const resp = await scanText(level, policyPreset, currentFilePath, currentWorkflowText, onlyStatus);
         setStatus(`Scan complete. Returned ${resp.findings?.length ?? 0} findings.`);
         renderResults(resp);
       } else {
@@ -300,7 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!text.trim()) throw new Error("Please paste YAML first.");
         currentWorkflowText = text;
         currentFilePath = "pasted.yml";
-        const resp = await scanText(level, currentFilePath, currentWorkflowText, onlyStatus);
+        const resp = await scanText(level, policyPreset, currentFilePath, currentWorkflowText, onlyStatus);
         setStatus(`Scan complete. Returned ${resp.findings?.length ?? 0} findings.`);
         renderResults(resp);
       }

@@ -6,7 +6,7 @@ import json
 from flask import Blueprint, jsonify, request
 
 from scanner.engine import scan_workflow_text, LEVELS
-from scanner.policy.loader import validate_policy, PolicyValidationError
+from scanner.policy import validate_policy, PolicyValidationError, PRESET_NAMES, get_preset_policy
 
 
 bp = Blueprint("scan", __name__, url_prefix="/api")
@@ -62,6 +62,17 @@ def _validate_policy(policy_raw: Any) -> tuple[Optional[Dict[str, Any]], Optiona
     return policy, None
 
 
+def _validate_policy_preset(preset_raw: Any) -> tuple[Optional[str], Optional[tuple[Dict[str, Any], int]]]:
+    if preset_raw is None:
+        return "default", None
+    if not isinstance(preset_raw, str):
+        return None, ({"error": "invalid_request", "message": "`policy_preset` must be a string if provided."}, 400)
+    preset = preset_raw.strip().lower()
+    if preset not in PRESET_NAMES:
+        return None, ({"error": "invalid_request", "message": f"Unsupported policy_preset '{preset}'. Valid: {PRESET_NAMES}"}, 400)
+    return preset, None
+
+
 @bp.route("/scan", methods=["GET", "POST"])
 def scan():
     if request.method == "GET":
@@ -79,6 +90,7 @@ def scan():
             },
             "scan_body_schema": {
                 "level": "L1|L2|L3 (default: L1)",
+                "policy_preset": "default|strict|relaxed (optional)",
                 "file_path": "string (optional)",
                 "workflow": "string (required) - GitHub Actions YAML text",
                 "policy": "object (optional) - policy override",
@@ -107,6 +119,12 @@ def scan():
         return jsonify(body), code
     assert level is not None
 
+    preset, err = _validate_policy_preset(payload.get("policy_preset"))
+    if err:
+        body, code = err
+        return jsonify(body), code
+    assert preset is not None
+
     file_path = payload.get("file_path", "workflow.yml")
     if not isinstance(file_path, str):
         return jsonify({"error": "invalid_request", "message": "`file_path` must be a string."}), 400
@@ -115,18 +133,29 @@ def scan():
     if not isinstance(workflow, str) or not workflow.strip():
         return jsonify({"error": "invalid_request", "message": "`workflow` must be a non-empty string containing YAML text."}), 400
 
-    policy, err = _validate_policy(payload.get("policy", {}))
-    if err:
-        body, code = err
-        return jsonify(body), code
-    assert policy is not None
+    # Merge preset overrides with explicit policy overrides (explicit wins).
+    user_policy_raw = payload.get("policy", {})
+    if user_policy_raw is None:
+        user_policy_raw = {}
+    if not isinstance(user_policy_raw, dict):
+        return jsonify({"error": "invalid_request", "message": "`policy` must be an object if provided."}), 400
+
+    merged_policy_raw: Dict[str, Any] = {
+        **get_preset_policy(level, preset),
+        **user_policy_raw,
+    }
+
+    try:
+        merged_policy = validate_policy(merged_policy_raw)
+    except PolicyValidationError as e:
+        return jsonify({"error": "policy_invalid", "message": str(e)}), 400
 
     only_status = _coerce_status_set(payload.get("only_status"))
 
     findings = scan_workflow_text(
         file_path=file_path,
         text=workflow,
-        policy=policy,
+        policy=merged_policy,
         level=level,
     )
 
@@ -134,6 +163,7 @@ def scan():
 
     return jsonify({
         "level": level,
+        "policy_preset": preset,
         "findings": findings_dict,
     }), 200
 
@@ -148,6 +178,7 @@ def scan_file():
       - only_status: optional ("fail,warn" or "FAIL,WARN")
       - file_path: optional (override the returned file_path; defaults to uploaded filename)
       - policy: optional (JSON string of policy override)
+      - policy_preset: optional (default|strict|relaxed)
     """
     upload = request.files.get("file")
     if upload is None:
@@ -178,6 +209,12 @@ def scan_file():
 
     only_status = _coerce_status_set(request.form.get("only_status"))
 
+    preset, err = _validate_policy_preset(request.form.get("policy_preset"))
+    if err:
+        body, code = err
+        return jsonify(body), code
+    assert preset is not None
+
     policy_raw: Dict[str, Any] = {}
     policy_str = request.form.get("policy")
     if policy_str:
@@ -189,16 +226,20 @@ def scan_file():
             return jsonify({"error": "invalid_request", "message": "`policy` JSON must be an object."}), 400
         policy_raw = parsed
 
-    policy, err = _validate_policy(policy_raw)
-    if err:
-        body, code = err
-        return jsonify(body), code
-    assert policy is not None
+    merged_policy_raw: Dict[str, Any] = {
+        **get_preset_policy(level, preset),
+        **policy_raw,
+    }
+
+    try:
+        merged_policy = validate_policy(merged_policy_raw)
+    except PolicyValidationError as e:
+        return jsonify({"error": "policy_invalid", "message": str(e)}), 400
 
     findings = scan_workflow_text(
         file_path=file_path,
         text=workflow,
-        policy=policy,
+        policy=merged_policy,
         level=level,
     )
 
@@ -206,6 +247,7 @@ def scan_file():
 
     return jsonify({
         "level": level,
+        "policy_preset": preset,
         "file_path": file_path,
         "findings": findings_dict,
     }), 200
