@@ -11,7 +11,7 @@
     <div class="container">
       <div class="title">
         <h1>GitHub Actions Security Scanner</h1>
-        <p class="subtitle">Upload a workflow YAML, scan with L1/L2/L3, and review findings with line-level hints.</p>
+        <p class="subtitle">Upload or paste a workflow YAML, scan with L1/L2/L3, and review findings with line-level hints.</p>
       </div>
       <div class="links">
         <a class="link" href="/api/scan" target="_blank" rel="noreferrer">API Help</a>
@@ -23,30 +23,43 @@
     <section class="card">
       <h2>Scan a workflow</h2>
 
+      <div class="tabs" role="tablist" aria-label="Scan mode">
+        <button class="tab active" id="tabUpload" type="button" role="tab" aria-selected="true">Upload file</button>
+        <button class="tab" id="tabPaste" type="button" role="tab" aria-selected="false">Paste YAML</button>
+      </div>
+
       <form id="scanForm" class="form">
-        <div class="row">
-          <label class="label" for="level">Level</label>
-          <select id="level" name="level" class="select">
-            <option value="L1" selected>L1</option>
-            <option value="L2">L2</option>
-            <option value="L3">L3</option>
-          </select>
+        <div class="row grid2">
+          <div>
+            <label class="label" for="level">Level</label>
+            <select id="level" name="level" class="select">
+              <option value="L1" selected>L1</option>
+              <option value="L2">L2</option>
+              <option value="L3">L3</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="label" for="onlyStatus">Only show</label>
+            <select id="onlyStatus" name="onlyStatus" class="select">
+              <option value="">All statuses</option>
+              <option value="fail,warn">FAIL + WARN</option>
+              <option value="fail">FAIL only</option>
+              <option value="warn">WARN only</option>
+            </select>
+          </div>
         </div>
 
-        <div class="row">
-          <label class="label" for="onlyStatus">Only show</label>
-          <select id="onlyStatus" name="onlyStatus" class="select">
-            <option value="">All statuses</option>
-            <option value="fail,warn">FAIL + WARN</option>
-            <option value="fail">FAIL only</option>
-            <option value="warn">WARN only</option>
-          </select>
-        </div>
-
-        <div class="row">
+        <div class="row" id="uploadPanel">
           <label class="label" for="file">Workflow YAML</label>
-          <input id="file" name="file" type="file" class="file" accept=".yml,.yaml,text/yaml,text/plain" required />
+          <input id="file" name="file" type="file" class="file" accept=".yml,.yaml,text/yaml,text/plain" />
           <p class="hint">Upload <code>.github/workflows/*.yml</code>. Do not upload real secrets.</p>
+        </div>
+
+        <div class="row hidden" id="pastePanel">
+          <label class="label" for="yamlText">Workflow YAML (paste)</label>
+          <textarea id="yamlText" class="textarea" rows="12" spellcheck="false" placeholder="name: CI&#10;on: [push]&#10;jobs:&#10;  ci:&#10;    runs-on: ubuntu-latest&#10;    steps:&#10;      - uses: actions/checkout@v4&#10;"></textarea>
+          <p class="hint">Tip: paste a workflow snippet here. Avoid pasting secrets.</p>
         </div>
 
         <div class="row actions">
@@ -65,7 +78,7 @@
       </div>
 
       <div id="results" class="results empty">
-        <p class="muted">No scan results yet. Upload a workflow and click <b>Scan</b>.</p>
+        <p class="muted">No scan results yet. Upload a workflow or paste YAML and click <b>Scan</b>.</p>
       </div>
     </section>
   </main>

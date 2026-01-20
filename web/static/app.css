@@ -123,3 +123,22 @@ code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 6px;
 .k { color: var(--muted); font-size: 12px; }
 .v { color: var(--text); font-size: 12px; line-height: 1.4; }
 .footer { padding: 24px 0; border-top: 1px solid var(--border); margin-top: 10px; }
+
+.tabs{display:flex;gap:10px;margin:10px 0 14px;}
+.tab{background:rgba(255,255,255,0.06);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+.tab.active{background:rgba(122,162,255,0.22);border-color:rgba(122,162,255,0.45);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:720px){.grid2{grid-template-columns:1fr;}}
+.textarea{width:100%;background:rgba(255,255,255,0.06);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;outline:none;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;line-height:1.5;}
+.textarea:focus{border-color:rgba(122,162,255,0.65);}
+.controlGroup{border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0;background:rgba(0,0,0,0.06);}
+.controlSummary{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;}
+.controlTitle{font-weight:850;font-size:13px;}
+.smallPills{display:inline-flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.smallPill{border:1px solid var(--border);border-radius:999px;padding:4px 8px;font-size:11px;color:var(--muted);background:rgba(255,255,255,0.06);}
+.lineLink{color:var(--accent);cursor:pointer;text-decoration:none;border:none;background:transparent;padding:0;font:inherit;}
+.lineLink:hover{text-decoration:underline;}
+.snippet{margin-top:10px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,0.04);overflow:hidden;}
+.snippetHeader{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-size:12px;display:flex;justify-content:space-between;align-items:center;}
+.snippetPre{margin:0;padding:10px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;line-height:1.5;}
+.hl{background:rgba(255,209,102,0.14);padding:1px 0;border-radius:4px;display:inline;}
