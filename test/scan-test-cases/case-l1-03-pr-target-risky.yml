@@ -1,0 +1,19 @@
+name: Case L1-03 pull_request_target Risky (FAIL/WARN)
+
+on:
+  pull_request_target:
+    branches: ["main"]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pr_target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dangerous - run untrusted code
+        run: |
+          echo "Simulating risky pattern: PR target + write perms"
+          echo "Never run untrusted code here."

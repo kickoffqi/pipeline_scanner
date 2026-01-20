@@ -6,12 +6,16 @@ from .base import Control
 from ..findings import Finding
 from ..ir.models import WorkflowIR
 from ..utils.explain import explain_pack
+from ..utils.locator import find_trigger_line, find_on_line
 
 
 class L104ForkPRSecrets(Control):
     control_id = "L1-04"
 
     def evaluate(self, wf: WorkflowIR, policy: Dict[str, Any]) -> List[Finding]:
+        trigger_line = find_trigger_line(getattr(wf, 'source_text', None), 'pull_request')
+        on_line = find_on_line(getattr(wf, 'source_text', None))
+        loc_line = trigger_line or on_line
         if "pull_request" not in wf.triggers.events:
             return [Finding(
                 control_id=self.control_id,
@@ -20,6 +24,8 @@ class L104ForkPRSecrets(Control):
                 rule_id="L1-04.R0",
                 message="Workflow is not triggered by pull_request.",
                 file_path=wf.file_path,
+                start_line=loc_line,
+                end_line=None,
                 explain=explain_pack(
                     why="Fork PR secret exposure is specific to pull_request-triggered workflows.",
                     detect="No `pull_request` trigger found.",
@@ -40,6 +46,8 @@ class L104ForkPRSecrets(Control):
                     rule_id="L1-04.R2",
                     message="Jobs using environments with secrets must not run on fork pull requests.",
                     file_path=wf.file_path,
+                    start_line=loc_line,
+                    end_line=None,
                     explain=explain_pack(
                         why="Environments often gate access to secrets and protected deployments. Fork PRs must not reach them.",
                         detect=f"Job binds to environment `{job.environment}` under pull_request trigger.",
@@ -59,6 +67,8 @@ class L104ForkPRSecrets(Control):
                     rule_id="L1-04.R1",
                     message="Secrets must not be accessed in fork-based pull request workflows.",
                     file_path=wf.file_path,
+                    start_line=loc_line,
+                    end_line=None,
                     explain=explain_pack(
                         why="Fork PR code is attacker-controlled; any secrets exposed can be exfiltrated via logs or network calls.",
                         detect="Job appears to reference secrets (derived uses_secrets=true).",
@@ -78,6 +88,8 @@ class L104ForkPRSecrets(Control):
                     rule_id="L1-04.R3",
                     message="Secrets must not be referenced at step level in fork pull request workflows.",
                     file_path=wf.file_path,
+                    start_line=loc_line,
+                    end_line=None,
                     explain=explain_pack(
                         why="Even a single step-level secret reference can leak credentials in fork PR contexts.",
                         detect="At least one step contains a secrets.* reference.",
@@ -96,6 +108,8 @@ class L104ForkPRSecrets(Control):
                 rule_id="L1-04.PASS",
                 message="No secret usage detected in pull_request workflow job.",
                 file_path=wf.file_path,
+                start_line=loc_line,
+                end_line=None,
                 explain=explain_pack(
                     why="Keeping PR workflows secret-free prevents credential exfiltration from untrusted code paths.",
                     detect="No secret references and no environment bindings were detected.",

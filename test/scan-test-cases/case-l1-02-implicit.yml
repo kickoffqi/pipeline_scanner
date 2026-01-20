@@ -1,0 +1,12 @@
+name: Case L1-02 Implicit Permissions (FAIL)
+
+on: [push]
+
+# Intentionally omit top-level permissions to test implicit mode.
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    # Intentionally omit job.permissions too.
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "implicit permissions should FAIL under L1-02"

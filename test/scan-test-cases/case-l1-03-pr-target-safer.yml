@@ -1,0 +1,16 @@
+name: Case L1-03 pull_request_target Safer (PASS/WARN)
+
+on:
+  pull_request_target:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  pr_target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Only read-only actions
+        run: echo "read-only perms reduce risk for pr_target"

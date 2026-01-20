@@ -1,0 +1,16 @@
+name: Case L1-01 SHA Pin (PASS)
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (pinned SHA)
+        # Replace with a real SHA if you want a true PASS in strict mode.
+        uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+      - name: Run
+        run: echo "sha pin should PASS under L1-01"

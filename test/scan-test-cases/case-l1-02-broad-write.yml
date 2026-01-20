@@ -1,0 +1,14 @@
+name: Case L1-02 Broad Write Permissions (FAIL/WARN)
+
+on: [push]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "broad write perms should be flagged by L1-02 policy"

@@ -1,5 +1,5 @@
 def main():
-    print("Hello from pipeline-scanner!")
+    print("Hello from gh-actions-security-scanner-11!")
 
 
 if __name__ == "__main__":

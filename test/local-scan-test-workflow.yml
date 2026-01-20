@@ -1,0 +1,104 @@
+name: Local Scanner Test Matrix
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  pull_request_target:
+    branches: ["main"]
+  workflow_dispatch:
+
+# Intentionally minimal at workflow level to test job-level overrides too.
+#permissions:
+#  contents: read
+
+jobs:
+  # --- Supply-chain + permissions tests ---
+  build_and_test:
+    name: Build and Test (mixed pins + minimal perms)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout (TAG - should WARN in L1-01 default policy)
+        uses: actions/checkout@v4
+
+      - name: Setup Python (TAG - should WARN)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Example unpinned third-party action (should FAIL in strict policy)
+        uses: docker/build-push-action@v6
+
+      - name: Example pinned-by-SHA (should PASS for this step)
+        # fake SHA example (replace with a real one if you want a true PASS in strict mode)
+        uses: actions/cache@0123456789abcdef0123456789abcdef01234567
+
+      - name: Run tests
+        run: |
+          echo "Hello scanner"
+          python -V
+
+  # --- Permissions implicit test ---
+  implicit_permissions_job:
+    name: Implicit Permissions (should FAIL L1-02 for this job)
+    runs-on: ubuntu-latest
+    # No job.permissions here -> relies on workflow defaults, but we want to test detection paths.
+    # To trigger "implicit", comment out workflow permissions above when testing.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Print token perms (placeholder)
+        run: echo "This job is here to test implicit permissions logic."
+
+  # --- pull_request_target risk surface test (L1-03) ---
+  pr_target_risky:
+    name: PR Target Risk Surface (should FAIL/WARN L1-03 depending on rules)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # intentionally broad for pr_target context
+      pull-requests: write
+    steps:
+      - name: Checkout base (PR target runs on base context)
+        uses: actions/checkout@v4
+      - name: Dangerous pattern - run PR-provided script (DO NOT DO THIS in real workflows)
+        run: |
+          echo "Simulating 'pull_request_target' risk surface"
+          echo "Never run untrusted code with write perms in pull_request_target."
+
+  # --- Fork PR secrets exposure surface (L1-04) ---
+  pr_secrets_surface:
+    name: PR Secrets Surface (should WARN/FAIL L1-04 if secrets/env used)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # DO NOT put real secrets here; placeholder key name only.
+      DUMMY_SECRET: ${{ secrets.DUMMY_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Show that env is set (placeholder)
+        run: |
+          echo "If this workflow ran on PRs from forks, secrets should NOT be exposed."
+          echo "DUMMY_SECRET is intentionally referenced to test detection."
+
+  # --- Azure OIDC (L2-09) test surface ---
+  azure_oidc_login:
+    name: Azure OIDC Login (L2-09 test)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Azure Login via OIDC (check subject/scopes/pins in your control)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Whoami (placeholder)
+        run: az account show --output table

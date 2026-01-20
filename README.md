@@ -75,3 +75,8 @@ flask run --host 0.0.0.0 --port 5000
 ```
 
 See `docs/api.md` for endpoint details.
+# Testing from local .yaml file
+curl -s -X POST http://localhost:5001/api/scan \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg wf "$(cat ./test/local-scan-test-workflow.yml)" \
+    '{level:"L1", file_path:"local-scan-test-workflow.yml", workflow:$wf}')" | jq

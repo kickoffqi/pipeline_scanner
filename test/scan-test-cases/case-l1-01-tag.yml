@@ -1,0 +1,19 @@
+name: Case L1-01 Tag Pin (WARN)
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (tag)
+        uses: actions/checkout@v4
+      - name: Setup Node (tag)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run
+        run: echo "tag pins should WARN under L1-01 default policy"

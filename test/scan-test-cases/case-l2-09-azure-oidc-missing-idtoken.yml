@@ -1,0 +1,17 @@
+name: Case L2-09 Azure OIDC Missing id-token (FAIL)
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  azure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure Login via OIDC (but id-token not granted)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
