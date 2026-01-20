@@ -5,7 +5,9 @@ from flask import Flask, jsonify
 
 from .routes.health import bp as health_bp
 from .routes.scan import bp as scan_bp
+from .errors import register_error_handlers
 from .routes.policy import bp as policy_bp
+
 
 
 def create_app() -> Flask:
