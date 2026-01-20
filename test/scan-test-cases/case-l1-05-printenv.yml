@@ -1,0 +1,11 @@
+name: L1-05 env dump demo
+on: [push]
+permissions:
+  contents: read
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print env (bad)
+        run: |
+          printenv

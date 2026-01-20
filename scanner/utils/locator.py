@@ -65,3 +65,14 @@ def find_trigger_line(text: str | None, event: str) -> Optional[int]:
             if event in tokens:
                 return i  # best effort: same line as `on: [...]`
     return None
+
+
+def find_first_regex_line(text: str | None, pattern: str) -> Optional[int]:
+    """Return 1-based line number of the first line matching regex pattern (best-effort)."""
+    if not text:
+        return None
+    rx = re.compile(pattern)
+    for i, line in enumerate(text.splitlines(), start=1):
+        if rx.search(line):
+            return i
+    return None

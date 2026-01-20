@@ -21,6 +21,20 @@ class PolicySchema(BaseModel):
         description="Forbid write-all permissions."
     )
 
+    # L1-05
+    forbid_secret_echo: Optional[bool] = Field(
+    None,
+    description="Fail or warn when secrets are printed to logs (e.g., echo ${{ secrets.X }})."
+    )
+    forbid_set_x: Optional[bool] = Field(
+    None,
+    description="Fail or warn when shell xtrace is enabled (set -x / xtrace)."
+    )
+    forbid_env_dump: Optional[bool] = Field(
+    None,
+    description="Fail or warn when environment variables are dumped (printenv/env/Env:)."
+    )
+    
     # L2-09 Azure OIDC
     require_azure_oidc: Optional[bool] = Field(
         None,

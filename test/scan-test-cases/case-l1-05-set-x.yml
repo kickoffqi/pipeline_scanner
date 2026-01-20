@@ -1,0 +1,13 @@
+name: L1-05 set -x demo
+on: [push]
+permissions:
+  contents: read
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug
+        run: |
+          set -x
+          echo "Hello"
+          set +x
