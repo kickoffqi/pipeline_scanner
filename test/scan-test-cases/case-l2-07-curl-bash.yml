@@ -1,0 +1,11 @@
+name: L2-07 curl|bash demo
+on: [push]
+permissions:
+  contents: read
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install tool (bad)
+        run: |
+          curl -fsSL https://example.com/install.sh | bash

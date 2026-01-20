@@ -1,0 +1,12 @@
+name: L2-07 iwr|iex demo
+on: [push]
+permissions:
+  contents: read
+jobs:
+  demo:
+    runs-on: windows-latest
+    steps:
+      - name: Install tool (bad)
+        shell: pwsh
+        run: |
+          iwr https://example.com/install.ps1 | iex

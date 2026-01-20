@@ -12,6 +12,7 @@ from .controls.l1_03_pr_target import L103PullRequestTarget
 from .controls.l1_04_fork_pr_secrets import L104ForkPRSecrets
 from .controls.l1_05_log_leaks import L105LogLeaks
 from .controls.l2_09_azure_oidc import L209AzureOIDC
+from .controls.l2_07_no_curl_bash import L207NoCurlBash
 
 
 LEVELS = {"L1", "L2", "L3"}
@@ -26,10 +27,13 @@ DEFAULT_POLICY_BY_LEVEL: Dict[str, Dict[str, Any]] = {
         "require_explicit_permissions": True,
         "forbid_write_all": True,
 
-# L1-05: log leak guardrails
-"forbid_secret_echo": True,
-"forbid_set_x": False,      # warn by default at L1
-"forbid_env_dump": False,   # warn by default at L1
+        # L1-05: log leak guardrails
+        "forbid_secret_echo": True,
+        "forbid_set_x": False,      # warn by default at L1
+        "forbid_env_dump": False,   # warn by default at L1
+
+        # L2-07: remote script execution (curl|bash)
+        "forbid_pipe_to_shell": True,
 
         # L2-09 defaults are irrelevant at L1 (control not run), but keep safe defaults anyway
         "require_azure_oidc": True,
@@ -46,10 +50,13 @@ DEFAULT_POLICY_BY_LEVEL: Dict[str, Dict[str, Any]] = {
         "require_explicit_permissions": True,
         "forbid_write_all": True,
 
-# L1-05: log leak guardrails
-"forbid_secret_echo": True,
-"forbid_set_x": False,      # warn by default at L1
-"forbid_env_dump": False,   # warn by default at L1
+        # L1-05: log leak guardrails
+        "forbid_secret_echo": True,
+        "forbid_set_x": False,      # warn by default at L1
+        "forbid_env_dump": False,   # warn by default at L1
+
+        # L2-07: remote script execution (curl|bash)
+        "forbid_pipe_to_shell": True,
 
         # L2-09: enforce OIDC for Azure
         "require_azure_oidc": True,
@@ -65,10 +72,13 @@ DEFAULT_POLICY_BY_LEVEL: Dict[str, Dict[str, Any]] = {
         "require_explicit_permissions": True,
         "forbid_write_all": True,
 
-# L1-05: log leak guardrails
-"forbid_secret_echo": True,
-"forbid_set_x": False,      # warn by default at L1
-"forbid_env_dump": False,   # warn by default at L1
+        # L1-05: log leak guardrails
+        "forbid_secret_echo": True,
+        "forbid_set_x": False,      # warn by default at L1
+        "forbid_env_dump": False,   # warn by default at L1
+
+        # L2-07: remote script execution (curl|bash)
+        "forbid_pipe_to_shell": True,
 
         "require_azure_oidc": True,
         "forbid_azure_credentials_secret": True,
@@ -93,6 +103,7 @@ def controls_for_level(level: str) -> List[Any]:
         L105LogLeaks(),
     ]
     l2 = [
+        L207NoCurlBash(),
         L209AzureOIDC(),
     ]
 

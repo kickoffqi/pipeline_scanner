@@ -59,3 +59,5 @@ class PolicySchema(BaseModel):
 
     class Config:
         extra = "forbid"
+
+    forbid_pipe_to_shell: Optional[bool] = Field(None, description="...")
